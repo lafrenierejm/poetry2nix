@@ -18,7 +18,7 @@
 , supportedExtensions ? lib.importJSON ./extensions.json
 , preferWheels ? false
 , ...
-}:
+}@attrs:
 
 pythonPackages.callPackage
   (
@@ -210,7 +210,8 @@ pythonPackages.callPackage
               pname = name;
               inherit python;
               inherit (fileInfo) file hash;
-              inherit (source) url;
+              inherit (source) url reference;
+              envVars = lib.attrsets.filterAttrs (n: v: builtins.isString v) attrs;
             }
         else
           fetchFromPypi {

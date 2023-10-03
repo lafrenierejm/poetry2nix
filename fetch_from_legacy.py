@@ -13,6 +13,7 @@ import urllib.request
 import shutil
 import ssl
 from os.path import normpath
+from typing import Optional
 
 
 # Parse the legacy index page to extract the href and package names
@@ -38,15 +39,26 @@ class Pep503(HTMLParser):
             self.sources[self.name] = self.url
         self.url = None
 
-
 url = sys.argv[1]
-package_name = sys.argv[2]
+reference = sys.argv[2]
+package_name = sys.argv[3]
 index_url = url + "/" + package_name + "/"
-package_filename = sys.argv[3]
+package_filename = sys.argv[4]
 
-# Parse username and password for this host from the netrc file if given.
-username, password = None, None
-if os.environ["NETRC"]:
+username: Optional[str] = None
+password: Optional[str] = None
+
+print(f"Looking for Poetry HTTP basic auth environment variables for reference {reference}")
+username_env_var = f"POETRY_HTTP_BASIC_{reference.upper()}_USERNAME"
+password_env_var = f"POETRY_HTTP_BASIC_{reference.upper()}_PASSWORD"
+if username_env_var in os.environ and password_env_var in os.environ:
+    print(f"Found Poetry HTTP basic auth environment variables for source `{reference}`")
+    username = os.environ[username_env_var]
+    password = os.environ[password_env_var]
+elif "NETRC" in os.environ:
+    # Parse username and password for this host from the netrc file if given.
+    host = urlparse(index_url).netloc
+    print(f"Looking for NETRC entry for host `{host}`")
     netrc_obj = netrc.netrc(os.environ["NETRC"])
     host = urlparse(index_url).netloc
     # Strip port number if present
@@ -74,6 +86,9 @@ if username and password:
         "utf-8"
     )
     req.add_header("Authorization", "Basic {}".format(password_b64))
+else:
+    print("No HTTP basic auth username and password found")
+
 response = urllib.request.urlopen(req, context=context)
 index = response.read()
 

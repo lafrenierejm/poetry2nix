@@ -141,7 +141,8 @@ lib.makeScope pkgs.newScope (self: {
     , groups ? [ ]
     , checkGroups ? [ "dev" ]
     , extras ? [ "*" ]
-    }:
+    , ...
+    }@attrs:
     let
       /* The default list of poetry2nix override overlays */
       mkEvalPep508 = import ./pep508.nix {
@@ -199,7 +200,7 @@ lib.makeScope pkgs.newScope (self: {
                 {
                   name = normalizedName;
                   value = self.mkPoetryDep (
-                    pkgMeta // {
+                    (pkgs.lib.attrsets.filterAttrs (n: v: builtins.isString v) attrs) // pkgMeta // {
                       inherit pwd preferWheels;
                       pos = poetrylockPos;
                       source = pkgMeta.source or null;
@@ -320,7 +321,8 @@ lib.makeScope pkgs.newScope (self: {
     , groups ? [ "dev" ]
     , checkGroups ? [ "dev" ]
     , extras ? [ "*" ]
-    }:
+    , ...
+    }@attrs:
     let
       inherit (lib) hasAttr;
 
@@ -351,10 +353,9 @@ lib.makeScope pkgs.newScope (self: {
         allEditablePackageSources
         excludedEditablePackageNames;
 
-      poetryPython = self.mkPoetryPackages {
-        inherit pyproject poetrylock overrides python pwd preferWheels pyProject groups checkGroups extras;
+      poetryPython = self.mkPoetryPackages (attrs // {
         editablePackageSources = editablePackageSources';
-      };
+      });
 
       inherit (poetryPython) poetryPackages;
 
@@ -391,9 +392,7 @@ lib.makeScope pkgs.newScope (self: {
     , ...
     }@attrs:
     let
-      poetryPython = self.mkPoetryPackages {
-        inherit pyproject poetrylock overrides python pwd preferWheels groups checkGroups extras;
-      };
+      poetryPython = self.mkPoetryPackages attrs;
       py = poetryPython.python;
 
       hooks = py.pkgs.callPackage ./hooks { };

@@ -145,7 +145,7 @@ let
   );
 
   fetchFromLegacy = lib.makeOverridable (
-    { python, pname, url, file, hash }:
+    { python, pname, url, reference, file, hash, envVars }:
     let
       pathParts =
         (builtins.filter
@@ -154,7 +154,7 @@ let
       netrc_file = if (pathParts != [ ]) then (builtins.head pathParts).path else "";
     in
     pkgs.runCommand file
-      {
+      (envVars // {
         nativeBuildInputs = [ python ];
         impureEnvVars = lib.fetchers.proxyImpureEnvVars;
         outputHashMode = "flat";
@@ -162,8 +162,9 @@ let
         outputHash = hash;
         NETRC = netrc_file;
         passthru.isWheel = lib.strings.hasSuffix "whl" file;
-      } ''
-      python ${./fetch_from_legacy.py} ${url} ${pname} ${file}
+      }) ''
+
+      python ${./fetch_from_legacy.py} ${url} ${reference} ${pname} ${file}
       mv ${file} $out
     ''
   );

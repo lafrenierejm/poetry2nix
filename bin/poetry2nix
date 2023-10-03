@@ -1,5 +1,7 @@
 #!/usr/bin/env python
+from os import environ
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 import subprocess
 import textwrap
 import argparse
@@ -7,10 +9,14 @@ import toml
 import json
 import sys
 
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 
 
 class Package:
+    attrs: Dict[str, Any]
+    name: str
+    source: Dict[str, str]
+
     def __init__(self, attrs: Dict[str, Any]) -> None:
         self.attrs = attrs
         self.name = attrs["name"]
@@ -25,13 +31,26 @@ class Package:
 
 class UrlPackage(Package):
     def fetch(self) -> Tuple[Package, subprocess.CompletedProcess]:
+        username: Optional[str] = None
+        password: Optional[str] = None
+
+        reference = self.source.get("reference")
+        if reference is not None:
+            username = environ.get(f"POETRY_HTTP_BASIC_{reference.upper()}_USERNAME")
+            password = environ.get(f"POETRY_HTTP_BASIC_{reference.upper()}_PASSWORD")
+
+        url = self.source["url"]
+        if username is not None and password is not None:
+            url_parsed = urlparse(url)
+            url = f"{url_parsed.scheme}://{username}:{password}@{url_parsed.netloc}{url_parsed.path}"
+
         return (
             self,
             subprocess.run(
                 [
                     "nix-prefetch-url",
                     "--unpack",
-                    self.source["url"],
+                    url,
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
